@@ -1,0 +1,2 @@
+# Load index.php before any HTML files
+DirectoryIndex index.php index.html index.htm
