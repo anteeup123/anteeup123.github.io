@@ -1,91 +1,102 @@
 <?php
-// Load WordPress core (adjust path if your includes folder is elsewhere)
-require_once __DIR__ . '/../wp-load.php';
+require_once __DIR__ . '/config.php';
 
-if ( ! is_user_logged_in() ) {
-    wp_redirect( wp_login_url() );
+// Check if the form was submitted
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Ensure at least one file was uploaded
+    if (!empty($_FILES['files']['name'][0])) {
+        // Corrected uploads directory path
+        $uploadDir = __DIR__ . '/uploads/';
+        
+        // Create the uploads directory if it doesn't exist
+        if (!file_exists($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        $clientName = $_POST['client_name'] ?? 'unknown';
+        $caseNumber = $_POST['case_number'] ?? '';
+        $notes      = $_POST['notes'] ?? '';
+        
+        // Sanitize and create client-specific folder
+        $sanitizedFolder = preg_replace('/[^a-z0-9]/', '-', strtolower($clientName));
+        $clientDir       = $uploadDir . $sanitizedFolder . '/';
+        if (!file_exists($clientDir)) {
+            mkdir($clientDir, 0755, true);
+        }
+        
+        $uploadedFiles = [];
+        $errors        = [];
+        
+        // Process each uploaded file
+        foreach ($_FILES['files']['name'] as $key => $originalName) {
+            $tmpName = $_FILES['files']['tmp_name'][$key];
+            $error   = $_FILES['files']['error'][$key];
+            $size    = $_FILES['files']['size'][$key];
+            
+            // Check for upload errors
+            if ($error !== UPLOAD_ERR_OK) {
+                $errors[] = "Error uploading {$originalName}: {$error}";
+                continue;
+            }
+            
+            // Enforce 10MB max size
+            if ($size > 10 * 1024 * 1024) {
+                $errors[] = "File {$originalName} is too large (max 10MB)";
+                continue;
+            }
+            
+            // Sanitize filename
+            $safeName    = preg_replace('/[^a-z0-9\.\-]/i', '_', $originalName);
+            $destination = $clientDir . $safeName;
+            
+            if (move_uploaded_file($tmpName, $destination)) {
+                $uploadedFiles[] = $safeName;
+            } else {
+                $errors[] = "Failed to move uploaded file {$originalName}";
+            }
+        }
+        
+        // Save upload metadata
+        $metadata = [
+            'client_name'  => $clientName,
+            'case_number'  => $caseNumber,
+            'notes'        => $notes,
+            'files'        => $uploadedFiles,
+            'upload_time'  => date('Y-m-d H:i:s'),
+        ];
+        file_put_contents($clientDir . 'metadata.json', json_encode($metadata));
+        
+        // Return JSON response
+        header('Content-Type: application/json');
+        if (empty($errors)) {
+            echo json_encode([
+                'success'        => true,
+                'message'        => 'Files uploaded successfully!',
+                'uploaded_files' => $uploadedFiles,
+            ]);
+        } else {
+            echo json_encode([
+                'success'        => false,
+                'message'        => 'Some files failed to upload',
+                'uploaded_files' => $uploadedFiles,
+                'errors'         => $errors,
+            ]);
+        }
+        exit;
+    }
+    
+    // No files provided
+    header('HTTP/1.1 400 Bad Request');
+    echo json_encode([
+        'success' => false,
+        'message' => 'No files were uploaded',
+    ]);
     exit;
 }
 
-$current_user = wp_get_current_user();
-$username     = sanitize_user( $current_user->user_login );
-
-$case_name  = sanitize_text_field( $_GET['folder'] ?? '' );
-$target_dir = wp_normalize_path( WP_CONTENT_DIR . '/uploads/clients/' . $username . '/' . $case_name );
-
-// Create target folder if it doesn’t exist
-if ( ! is_dir( $target_dir ) ) {
-    wp_mkdir_p( $target_dir );
-}
-
-$allowed_types = [ 'pdf','doc','docx','jpg','jpeg','png','xls','xlsx','txt' ];
-$max_size      = 10 * 1024 * 1024; // 10 MB
-
-$uploaded = [];
-
-if ( ! empty( $_FILES['files'] ) ) {
-    foreach ( $_FILES['files']['name'] as $i => $filename ) {
-        $tmp   = $_FILES['files']['tmp_name'][ $i ];
-        $size  = $_FILES['files']['size'][ $i ];
-        $error = $_FILES['files']['error'][ $i ];
-        $ext   = strtolower( pathinfo( $filename, PATHINFO_EXTENSION ) );
-
-        if ( UPLOAD_ERR_OK === $error 
-             && in_array( $ext, $allowed_types, true ) 
-             && $size <= $max_size 
-        ) {
-            $safe_name = preg_replace( '/[^a-zA-Z0-9_\.-]/', '_', $filename );
-            $dest      = trailingslashit( $target_dir ) . $safe_name;
-            move_uploaded_file( $tmp, $dest );
-            $uploaded[] = $safe_name;
-        }
-    }
-}
-
-// ─────────────────────
-// Notify site owner
-// ─────────────────────
-if ( ! empty( $uploaded ) ) {
-    // Build a newline-separated list of filenames
-    $file_list = implode( "\n- ", $uploaded );
-
-    // Change this to your actual email address
-    $owner_email = 'you@yourdomain.com';
-
-    // Subject with username and case name
-    $subject = sprintf(
-        'Attorney %s uploaded files to "%s"',
-        $username,
-        $case_name
-    );
-
-    // Plain-text body
-    $body  = "The attorney user \"{$username}\" has uploaded the following files to the \"{$case_name}\" folder:\n\n";
-    $body .= "- {$file_list}\n\n";
-    $body .= 'Review them here: ' . home_url( '/client-upload/?folder=' . rawurlencode( $case_name ) );
-
-    wp_mail(
-        $owner_email,
-        $subject,
-        $body,
-        [ 'Content-Type: text/plain; charset=UTF-8' ]
-    );
-}
-
-// ─────────────────────
-// Redirect back to client-upload
-// ─────────────────────
-$upload_page = get_page_by_path( 'client-upload' );
-if ( $upload_page ) {
-    wp_safe_redirect(
-        add_query_arg(
-            'folder',
-            urlencode( $case_name ),
-            get_permalink( $upload_page->ID )
-        )
-    );
-} else {
-    wp_safe_redirect( home_url() );
-}
-
-exit;
+// Invalid request method
+header('HTTP/1.1 405 Method Not Allowed');
+echo json_encode([
+    'success' => false,
+    'message' => 'Invalid request method',
+]);

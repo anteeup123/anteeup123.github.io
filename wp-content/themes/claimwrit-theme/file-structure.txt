@@ -1,0 +1,21 @@
+/claimwrit/
+├── index.php
+├── header.php
+├── footer.php
+├── nav.php
+├── mission.php
+├── services.php
+├── sample-request.php
+├── contact.php
+├── client-upload.php
+├── blog/
+│   ├── index.php
+│   └── [blog posts]
+├── css/
+│   └── styles.css
+├── js/
+│   └── scripts.js
+├── images/
+└── includes/
+    ├── config.php
+    └── functions.php

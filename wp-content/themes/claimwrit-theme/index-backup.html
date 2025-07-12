@@ -1,0 +1,52 @@
+<?php 
+$pageTitle = "Precision Demand Letters";
+$currentPage = 'home';
+include 'includes/header.php'; 
+?>
+
+<main class="container">
+    <h1>Your cases deserve weaponized demand letters.</h1>
+    <p class="results-statement">Firms using our service see 20%+ faster settlements on average.</p>
+    
+    <div class="upload-container">
+        <aside class="upload-checklist">
+            <h3>🗂 Submission Checklist</h3>
+            <p>Ensure your files include:</p>
+            <ul>
+                <li>✔ Police Report</li>
+                <li>✔ Medical Bills & Records</li>
+                <li>✔ Proof of Insurance</li>
+                <li>✔ Signed HIPAA Authorization</li>
+            </ul>
+            <a class="checklist-link" href="checklist/00_DEMAND_PACKAGE_SUBMISSION_CHECKLIST.pdf" target="_blank">📥 Download Full Checklist (PDF)</a>
+        </aside>
+
+        <section class="upload-form">
+            <form action="upload.php" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>Client Full Name – DOA:
+                        <input type="text" name="folder" placeholder="e.g., Maria Lopez – DOA 03/14/2022" required />
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label>Your Email (confirmation sent to this address):
+                        <input type="email" name="email" placeholder="e.g., you@lawfirm.com" required />
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label>Select Files:
+                        <input type="file" name="files[]" multiple required />
+                    </label>
+                </div>
+
+                <button type="submit" class="btn-submit">Upload to ClaimWrit</button>
+            </form>
+
+            <p><a href="request-access.html">Request Attorney Access</a> if you do not have login credentials.</p>
+        </section>
+    </div>
+</main>
+
+<?php include 'includes/footer.php'; ?>
